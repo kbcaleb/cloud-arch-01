@@ -12,7 +12,7 @@ install:
   - 'pip install awscli'
 script:
   - 'yamllint .'
-  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then find . -type f -name ''*.y*ml'' | sed ''s|^\./||'' | while read file; do set -ex && aws s3 cp "$file" "s3://kbcaleb-aws-cf-templates/$TRAVIS_COMMIT/$file" && aws cloudformation validate-template --template-url "https://s3.amazonaws.com/kbcaleb-aws-cf-templates/$TRAVIS_COMMIT/$file" > /dev/null && aws s3 cp "$file" "s3://kbcaleb-aws-cf-templates/latest/$file" --acl public-read'
+  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then find . -type f -name ''*.y*ml'' | sed ''s|^\./||'' | while read file; do set -ex && aws s3 cp "$file" "s3://kbcaleb-aws-cf-templates/$TRAVIS_COMMIT/$file" && aws cloudformation validate-template --template-url "https://s3.amazonaws.com/kbcaleb-aws-cf-templates/$TRAVIS_COMMIT/$file" > /dev/null && aws s3 cp "$file" "s3://kbcaleb-aws-cf-templates/latest/$file" --acl public-read; done; fi'
 notifications:
   slack:
     rooms:
