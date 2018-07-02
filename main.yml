@@ -220,11 +220,16 @@ Resources:
             '/var/www/html/index.html':
               content: !Sub |
                 "Hello AWS World"
+          commands:
+            '01_chown_www':
+              command: 'chown -R ec2-user:ec2-user /var/www'
           services:
             sysvinit:
               httpd:
                 enabled: true
                 ensureRunning: true
+                commands:
+                  - '01_chown_www'
                 packages:
                   yum:
                     - httpd
