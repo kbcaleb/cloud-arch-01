@@ -1,0 +1,318 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Cloud Architect - Exercise 01'
+Parameters:
+  VPC:
+    Description: VPC for deployment
+    Type: AWS::EC2::VPC::Id
+  Subnet:
+    Description: Subnet for deployment
+    Type: AWS::EC2::Subnet::Id
+  KeyName:
+    Description: SSH Key for EC2 connections
+    Type: AWS::EC2::KeyPair::KeyName
+Mappings:
+  RegionMap:
+    'ap-south-1':
+      AMI: 'ami-76d6f519'
+    'eu-west-3':
+      AMI: 'ami-969c2deb'
+    'eu-west-2':
+      AMI: 'ami-a36f8dc4'
+    'eu-west-1':
+      AMI: 'ami-ca0135b3'
+    'ap-northeast-2':
+      AMI: 'ami-c10fa6af'
+    'ap-northeast-1':
+      AMI: 'ami-92df37ed'
+    'sa-east-1':
+      AMI: 'ami-3885d854'
+    'ca-central-1':
+      AMI: 'ami-338a0a57'
+    'ap-southeast-1':
+      AMI: 'ami-de90a5a2'
+    'ap-southeast-2':
+      AMI: 'ami-423bec20'
+    'eu-central-1':
+      AMI: 'ami-9a91b371'
+    'us-east-1':
+      AMI: 'ami-14c5486b'
+    'us-east-2':
+      AMI: 'ami-922914f7'
+    'us-west-1':
+      AMI: 'ami-25110f45'
+    'us-west-2':
+      AMI: 'ami-e251209a'
+Resources:
+  Logs:
+    DeletionPolicy: Retain
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 30
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: !Sub '${AWS::StackName}-SecurityGroup'
+      VpcId: !Ref VPC
+  SecurityGroupInSSHWorld:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: '0.0.0.0/0'
+  SecurityGroupInHTTPWorld:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      GroupId: !Ref SecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: '0.0.0.0/0'
+  ElasticIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+  NetworkInterface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      GroupSet:
+        - !Ref SecurityGroup
+      SubnetId: !Ref Subnet
+  EIPAssocation:
+    Type: 'AWS::EC2::EIPAssociation'
+    Properties:
+      AllocationId: !GetAtt 'ElasticIP.AllocationId'
+      NetworkInterfaceId: !Ref NetworkInterface
+  IAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - 'arn:aws:logs:*:*:*'
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+        - !Ref IAMRole
+  Instance:
+    DependsOn: EIPAssocation
+    Type: 'AWS::EC2::Instance'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          default:
+            - awslogs
+            - apache
+            - config
+        awslogs:
+          packages:
+            yum:
+              awslogs: []
+          files:
+            '/etc/awslogs/awscli.conf':
+              content: !Sub |
+                [default]
+                region = ${AWS::Region}
+                [plugins]
+                cwlogs = cwlogs
+              mode: '000644'
+              owner: root
+              group: root
+            '/etc/awslogs/awslogs.conf':
+              content: !Sub |
+                [general]
+                state_file = /var/lib/awslogs/agent-state
+                [/var/log/messages]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/messages
+                log_stream_name = {instance_id}/var/log/messages
+                log_group_name = ${Logs}
+                [/var/log/secure]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/secure
+                log_stream_name = {instance_id}/var/log/secure
+                log_group_name = ${Logs}
+                [/var/log/cron]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/cron
+                log_stream_name = {instance_id}/var/log/cron
+                log_group_name = ${Logs}
+                [/var/log/cloud-init.log]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/cloud-init.log
+                log_stream_name = {instance_id}/var/log/cloud-init.log
+                log_group_name = ${Logs}
+                [/var/log/cfn-init.log]
+                datetime_format = %Y-%m-%d %H:%M:%S
+                file = /var/log/cfn-init.log
+                log_stream_name = {instance_id}/var/log/cfn-init.log
+                log_group_name = ${Logs}
+                [/var/log/cfn-hup.log]
+                datetime_format = %Y-%m-%d %H:%M:%S
+                file = /var/log/cfn-hup.log
+                log_stream_name = {instance_id}/var/log/cfn-hup.log
+                log_group_name = ${Logs}
+                [/var/log/cfn-init-cmd.log]
+                datetime_format = %Y-%m-%d %H:%M:%S
+                file = /var/log/cfn-init-cmd.log
+                log_stream_name = {instance_id}/var/log/cfn-init-cmd.log
+                log_group_name = ${Logs}
+                [/var/log/cloud-init-output.log]
+                file = /var/log/cloud-init-output.log
+                log_stream_name = {instance_id}/var/log/cloud-init-output.log
+                log_group_name = ${Logs}
+                [/var/log/dmesg]
+                file = /var/log/dmesg
+                log_stream_name = {instance_id}/var/log/dmesg
+                log_group_name = ${Logs}
+                [/var/log/httpd/access_log]
+                datetime_format = %b %d %H:%M:%S %Y
+                file = /var/log/httpd/access_log
+                log_stream_name = {instance_id}/var/log/httpd/access_log
+                log_group_name = ${Logs}
+                [/var/log/httpd/error_log]
+                datetime_format = %d/%b/%Y:%H:%M:%S %z
+                file = /var/log/httpd/error_log
+                log_stream_name = {instance_id}/var/log/httpd/error_log
+                log_group_name = ${Logs}
+              mode: '000644'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              awslogs:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                    - awslogs
+                files:
+                  - '/etc/awslogs/awslogs.conf'
+                  - '/etc/awslogs/awscli.conf'
+        apache:
+          packages:
+            yum:
+              httpd: []
+          files:
+            '/var/www/html/index.html':
+              content: !Sub |
+                "Hello AWS World"
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                    - httpd
+                files:
+                  - '/var/www/index.html'
+        config:
+          files:
+            '/etc/cfn/cfn-hup.conf':
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+                interval=1
+              mode: '000400'
+              owner: root
+              group: root
+            '/etc/cfn/hooks.d/cfn-auto-reloader.conf':
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.VirtualMachine.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init --verbose --stack=${AWS::StackName} --region=${AWS::Region} --resource=VirtualMachine
+                runas=root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - '/etc/cfn/cfn-hup.conf'
+                  - '/etc/cfn/hooks.d/cfn-auto-reloader.conf'
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvdf
+          Ebs:
+            DeleteOnTermination: false
+            VolumeType: gp2
+            VolumeSize: 1
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          NetworkInterfaceId: !Ref NetworkInterface
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+          if [ "$(file -b -s /dev/xvdf)" == "data" ]; then
+            mkfs.ext4 /dev/xvdf
+            mkdir /var/www
+          fi
+          mount /dev/xvdf /var/www
+          echo "/dev/xvdf  /var/www  ext4  defaults,nofail 0 2" >> /etc/fstab
+          trap '/opt/aws/bin/cfn-signal -e 1 --region ${AWS::Region} --stack ${AWS::StackName} --resource Instance' ERR
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource Instance --region ${AWS::Region}
+          /opt/aws/bin/cfn-signal -e 0 --region ${AWS::Region} --stack ${AWS::StackName} --resource Instance
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT10M
+  RecoveryAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: 'Recovering instance when underlying hardware fails.'
+      Namespace: 'AWS/EC2'
+      MetricName: StatusCheckFailed_System
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 5
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 0
+      AlarmActions:
+        - !Sub 'arn:aws:automate:${AWS::Region}:ec2:recover'
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Instance
+Outputs:
+  InstanceId:
+    Description: 'EC2 instance id.'
+    Value: !Ref Instance
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceId'
+  IPAddress:
+    Description: 'The public IP address of the EC2 instance.'
+    Value: !Ref ElasticIP
+    Export:
+      Name: !Sub '${AWS::StackName}-IPAddress'
