@@ -50,6 +50,15 @@ Resources:
     Properties:
       RetentionInDays: 30
   SecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: "Allowing Open SSH"
+          - id: W2
+            reason: "Allowing Open SSH"
+          - id: F1000
+            reason: "Allowing Open SSH"
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: !Sub '${AWS::StackName}-SecurityGroup'
@@ -86,6 +95,11 @@ Resources:
       AllocationId: !GetAtt 'ElasticIP.AllocationId'
       NetworkInterfaceId: !Ref NetworkInterface
   IAMRole:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: "Logs Grant"
     Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
@@ -109,8 +123,7 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:DescribeLogStreams'
                   - 'logs:PutLogEvents'
-                Resource:
-                  - 'arn:aws:logs:*:*:*'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${Logs}:*'
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
