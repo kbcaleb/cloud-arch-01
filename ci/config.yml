@@ -1,0 +1,11 @@
+global:
+  marketplace-ami: false
+  owner: kbcaleb@gmail.com
+  qsname: cloud-arch-01
+  regions:
+    - us-west-2
+  reporting: true
+tests:
+  default:
+    parameter_input: ec2-failover.json
+    template_file: ec2-failover.yml

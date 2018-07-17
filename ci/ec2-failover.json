@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "VPC",
+    "ParameterValue": "vpc-d157e2b4"
+  },
+  {
+    "ParameterKey": "Subnet",
+    "ParameterValue": "subnet-a319bad4"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "cloud-arch-01"
+  }
+]
